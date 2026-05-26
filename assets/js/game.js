@@ -1,7 +1,5 @@
-// app.js
-
 // ── Background Music ──────────────────────────────────────────
-const bgMusic = new Audio('my_sound.mp3');
+const bgMusic = new Audio('..audio/bg.mp3');
 bgMusic.loop = true;
 bgMusic.volume = 0.5;
 
