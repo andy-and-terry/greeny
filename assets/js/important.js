@@ -223,3 +223,9 @@
     });
 
 })();
+/* END OF drc.js */
+/* DEV NOTES dev.js */
+console.log("version 1.0.0.0 [beta]")
+console.warn("Depreciated/errored file assets/js/*.js")
+/* END OF dev.js */
+/* END OF FILE */
