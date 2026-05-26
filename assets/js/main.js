@@ -3,13 +3,9 @@ audio.loop = true;
 audio.play();
 
 function onButton1() {
-  console.log('Button 1 pressed');
+  console.log('Entered menu');
 }
 
 function onButton2() {
-  console.log('Button 2 pressed');
-}
-
-function onButton3() {
-  console.log('Button 3 pressed');
+  console.log('Entered settings');
 }
