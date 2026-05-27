@@ -1,7 +1,9 @@
 const STORAGE_KEY = 'gamedata';
+const DETENTION_DURATION_MS = 60_000;
+const IMPOSSIBLE_QUESTION_CHANCE = 0.3;
 
 const defaultState = {
-  version: 1,
+  version: 2,
   player: { x: 1, y: 1 },
   notebookCount: 0,
   stars: 0,
@@ -11,8 +13,20 @@ const defaultState = {
   collectedItems: [],
   principalTurns: 0,
   jumpropeTurns: 0,
+  wrongAnswers: 0,
   greenyMood: 'Greeny is cheerful and ready to help you learn.',
   message: 'Welcome to Greeny\'s Learning Hall!',
+  greeny: {
+    x: 5,
+    y: 5,
+    anger: 0,
+    pace: 'calm',
+    lastMoveAt: 0
+  },
+  detention: {
+    active: false,
+    until: 0
+  },
   encounters: {
     principal: false,
     jumprope: false,
@@ -33,6 +47,8 @@ const mapLayout = [
   '##########'
 ];
 
+const detentionTile = { x: 1, y: 8 };
+
 const notebooks = {
   '4,1': { prompt: 'What is 4 + 3?', options: ['5', '7', '6', '8'], answer: '7' },
   '6,3': { prompt: 'What is 9 - 4?', options: ['5', '4', '6', '3'], answer: '5' },
@@ -40,6 +56,21 @@ const notebooks = {
   '3,8': { prompt: 'What is 12 ÷ 3?', options: ['2', '3', '4', '6'], answer: '4' },
   '7,8': { prompt: 'What shape has 4 equal sides?', options: ['Triangle', 'Square', 'Circle', 'Oval'], answer: 'Square' }
 };
+
+const impossiblePrompts = [
+  {
+    prompt: '∰⟟⎓ ⟒⋔⊬ ⊑⌰⍑ ⏁⊬⌿⟒⌇, ⍙⊑⏃⏁ ⟟⌇ ☊⍜⍀⍀⟒☊⏁?',
+    options: ['◊∆?', '⌇⊬⋔', '⍜⍜⍜', '???']
+  },
+  {
+    prompt: 'ꇙꍩꍟ ꋬꋪꍟ ꋖꃅꍟ ꒒ꍟ꓄꓄ꍟꋪꌗ ꋪꍟꋬ꒒?',
+    options: ['blorp', 'snarp', '??', '↯↯↯']
+  },
+  {
+    prompt: 'Ж҈҉͜͡Ӝ̷̨̛̲̠̺̬̪̞ ርቿዪዘነክጋል?',
+    options: ['N/A', '???', '▓▓▓', '∆∆∆']
+  }
+];
 
 const itemDefinitions = {
   '3,3': { name: 'Energy Bar', description: 'Adds 2 stars and gives you a burst of focus.' },
@@ -62,13 +93,20 @@ const elements = {
 };
 
 let state = loadState();
+let greenyLoop = null;
+let detentionLoop = null;
+
+function clone(value) {
+  if (typeof structuredClone === 'function') return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+}
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
 
   if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([structuredClone(defaultState)]));
-    return structuredClone(defaultState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([clone(defaultState)]));
+    return clone(defaultState);
   }
 
   try {
@@ -81,19 +119,21 @@ function loadState() {
     return mergeState(parsed[0]);
   } catch (error) {
     console.warn('Failed to parse localStorage.gamedata. Resetting save.', error);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([structuredClone(defaultState)]));
-    return structuredClone(defaultState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([clone(defaultState)]));
+    return clone(defaultState);
   }
 }
 
 function mergeState(saved) {
   return {
-    ...structuredClone(defaultState),
+    ...clone(defaultState),
     ...saved,
     player: { ...defaultState.player, ...(saved.player || {}) },
     inventory: Array.isArray(saved.inventory) ? saved.inventory : [],
     notebooksSolved: Array.isArray(saved.notebooksSolved) ? saved.notebooksSolved : [],
     collectedItems: Array.isArray(saved.collectedItems) ? saved.collectedItems : [],
+    greeny: { ...defaultState.greeny, ...(saved.greeny || {}) },
+    detention: { ...defaultState.detention, ...(saved.detention || {}) },
     encounters: { ...defaultState.encounters, ...(saved.encounters || {}) }
   };
 }
@@ -103,6 +143,7 @@ function saveState() {
 }
 
 function render() {
+  releaseDetentionIfNeeded();
   renderMap();
   renderHud();
   renderInventory();
@@ -130,11 +171,18 @@ function getSymbolAt(x, y) {
     return { className: 'tile-player', text: '🙂', title: 'You' };
   }
 
+  if (state.greeny.x === x && state.greeny.y === y && !state.detention.active) {
+    return { className: 'tile-greeny', text: 'G', title: 'Greeny' };
+  }
+
   const base = mapLayout[y][x];
   const key = `${x},${y}`;
 
+  if (x === detentionTile.x && y === detentionTile.y) {
+    return { className: 'tile-door', text: 'D', title: 'Detention Room' };
+  }
+
   if (base === '#') return { className: 'tile-wall', text: '', title: 'Wall' };
-  if (base === 'G') return { className: 'tile-greeny', text: 'G', title: 'Greeny' };
   if (base === 'P') return { className: 'tile-principal', text: 'P', title: 'Principal' };
   if (base === 'J') return { className: 'tile-jumprope', text: 'J', title: 'Jump Rope Champion' };
   if (base === 'N' && !state.notebooksSolved.includes(key)) return { className: 'tile-notebook', text: '📘', title: 'Notebook' };
@@ -170,6 +218,14 @@ function renderRoomInfo() {
   const key = `${state.player.x},${state.player.y}`;
   const tile = mapLayout[state.player.y][state.player.x];
 
+  if (state.detention.active) {
+    const seconds = Math.max(0, Math.ceil((state.detention.until - Date.now()) / 1000));
+    elements.roomName.textContent = 'Detention Room';
+    elements.roomDescription.textContent = 'You must wait calmly before returning to class.';
+    showMessage(`Detention ends in ${seconds} second${seconds === 1 ? '' : 's'}.`, 'warn');
+    return;
+  }
+
   const descriptions = {
     '#': ['Wall', 'A painted brick wall blocks your way.'],
     '.': ['Hallway', 'A bright hallway with posters about math, reading, and kindness.'],
@@ -200,7 +256,8 @@ function renderRoomInfo() {
 }
 
 function renderStatuses() {
-  elements.greenyMood.textContent = state.greenyMood;
+  const paceText = `Greeny is ${state.greeny.pace} and tapping a pointer against his hand.`;
+  elements.greenyMood.textContent = `${state.greenyMood} ${paceText}`;
   elements.principalStatus.textContent = state.encounters.principal
     ? 'The principal noticed your effort and reminds you to stay focused in the halls.'
     : 'The principal is calm because the rules are being followed.';
@@ -213,8 +270,16 @@ function showMessage(message, tone = 'good') {
   elements.eventContent.innerHTML = `<p class="status-${tone}">${message}</p>`;
 }
 
+function maybeGetImpossiblePrompt() {
+  return Math.random() < IMPOSSIBLE_QUESTION_CHANCE
+    ? impossiblePrompts[Math.floor(Math.random() * impossiblePrompts.length)]
+    : null;
+}
+
 function showNotebookChallenge(key) {
-  const notebook = notebooks[key];
+  const impossible = maybeGetImpossiblePrompt();
+  const notebook = impossible || notebooks[key];
+
   if (!notebook) {
     showMessage('This notebook is still being written.', 'warn');
     return;
@@ -222,7 +287,7 @@ function showNotebookChallenge(key) {
 
   const wrapper = document.createElement('div');
   wrapper.className = 'question-box';
-  wrapper.innerHTML = `<p>${notebook.prompt}</p>`;
+  wrapper.innerHTML = `<p>${notebook.prompt}</p>${impossible ? '<p class="status-warn">This page looks unreadable...</p>' : ''}`;
 
   const answerGrid = document.createElement('div');
   answerGrid.className = 'answer-grid';
@@ -232,7 +297,7 @@ function showNotebookChallenge(key) {
     button.type = 'button';
     button.className = 'answer-button';
     button.textContent = option;
-    button.addEventListener('click', () => solveNotebook(key, option === notebook.answer));
+    button.addEventListener('click', () => solveNotebook(key, impossible ? false : option === notebook.answer, Boolean(impossible)));
     answerGrid.appendChild(button);
   });
 
@@ -241,7 +306,7 @@ function showNotebookChallenge(key) {
   elements.eventContent.appendChild(wrapper);
 }
 
-function solveNotebook(key, correct) {
+function solveNotebook(key, correct, impossible = false) {
   if (correct) {
     state.notebooksSolved.push(key);
     state.notebookCount += 1;
@@ -254,8 +319,15 @@ function solveNotebook(key, correct) {
     return;
   }
 
-  state.greenyMood = 'Greeny says: That one was tricky. Try exploring and come back stronger.';
-  state.message = 'Not quite! Greeny encourages you to try again.';
+  state.wrongAnswers += 1;
+  state.greeny.anger += 1;
+  state.greeny.pace = state.greeny.anger >= 4 ? 'very fast' : state.greeny.anger >= 2 ? 'faster' : 'focused';
+  state.greenyMood = impossible
+    ? 'Greeny says: That page was pure gibberish... but now he is tapping the pointer faster.'
+    : 'Greeny says: That was not correct. He starts tapping the pointer against his hand.';
+  state.message = impossible
+    ? 'The notebook page was impossible to read. Greeny still got more serious.'
+    : 'Wrong answer! Greeny is moving faster now.';
   saveState();
   render();
 }
@@ -346,6 +418,13 @@ function canMoveTo(x, y) {
 }
 
 function movePlayer(dx, dy) {
+  releaseDetentionIfNeeded();
+
+  if (state.detention.active) {
+    render();
+    return;
+  }
+
   const nextX = state.player.x + dx;
   const nextY = state.player.y + dy;
 
@@ -360,10 +439,89 @@ function movePlayer(dx, dy) {
   state.message = 'You moved to a new part of the school.';
   saveState();
   render();
+  updateGreeny();
+}
+
+function getGreenyDelay() {
+  if (state.greeny.anger >= 6) return 350;
+  if (state.greeny.anger >= 4) return 500;
+  if (state.greeny.anger >= 2) return 700;
+  return 1000;
+}
+
+function updateGreeny() {
+  if (state.detention.active) return;
+
+  const now = Date.now();
+  if (now - state.greeny.lastMoveAt < getGreenyDelay()) return;
+
+  const dx = state.player.x - state.greeny.x;
+  const dy = state.player.y - state.greeny.y;
+  const nextStep = Math.abs(dx) > Math.abs(dy)
+    ? { x: state.greeny.x + Math.sign(dx), y: state.greeny.y }
+    : { x: state.greeny.x, y: state.greeny.y + Math.sign(dy) };
+
+  if (canMoveTo(nextStep.x, nextStep.y)) {
+    state.greeny.x = nextStep.x;
+    state.greeny.y = nextStep.y;
+    state.greeny.lastMoveAt = now;
+  }
+
+  if (state.greeny.x === state.player.x && state.greeny.y === state.player.y) {
+    sendToDetention();
+    return;
+  }
+
+  saveState();
+  render();
+}
+
+function sendToDetention() {
+  state.player.x = detentionTile.x;
+  state.player.y = detentionTile.y;
+  state.detention.active = true;
+  state.detention.until = Date.now() + DETENTION_DURATION_MS;
+  state.message = 'Greeny caught you and sent you to detention for 1 minute.';
+  state.greenyMood = 'Greeny taps the pointer against his hand and waits for you to reflect in detention.';
+  saveState();
+  render();
+  startDetentionTimer();
+}
+
+function startGreenyLoop() {
+  if (greenyLoop) clearInterval(greenyLoop);
+  greenyLoop = setInterval(() => {
+    updateGreeny();
+  }, 250);
+}
+
+function startDetentionTimer() {
+  if (detentionLoop) clearInterval(detentionLoop);
+  detentionLoop = setInterval(() => {
+    if (!state.detention.active) {
+      clearInterval(detentionLoop);
+      detentionLoop = null;
+      return;
+    }
+    releaseDetentionIfNeeded();
+    render();
+  }, 1000);
+}
+
+function releaseDetentionIfNeeded() {
+  if (!state.detention.active) return;
+  if (Date.now() < state.detention.until) return;
+
+  state.detention.active = false;
+  state.detention.until = 0;
+  state.player.x = 2;
+  state.player.y = 8;
+  state.message = 'Detention is over. Return to class and keep learning.';
+  saveState();
 }
 
 function resetSave() {
-  state = structuredClone(defaultState);
+  state = clone(defaultState);
   saveState();
   render();
 }
@@ -387,4 +545,9 @@ document.addEventListener('keydown', event => {
 
 elements.resetSaveButton.addEventListener('click', resetSave);
 
+if (state.detention.active) {
+  startDetentionTimer();
+}
+
+startGreenyLoop();
 render();
