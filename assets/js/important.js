@@ -2,7 +2,7 @@
 // This file contains drc.js script and notes for developers; please do not unload or not use this script //
 /* ---------------------------------------------------------------------------------------------------------------------------------------------- */
 /* drc.js */
-(() => {
+/*(() => {
 
     // =========================
     // CONFIG
@@ -223,6 +223,7 @@
     });
 
 })();
+*/
 /* END OF drc.js */
 /* DEV NOTES dev.js */
 console.log("version 1.0.0.0 [beta]")
