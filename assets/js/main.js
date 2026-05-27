@@ -3,9 +3,9 @@ audio.loop = true;
 audio.play();
 
 function onButton1() {
-  console.log('Entered menu');
+  window.location.replace(selector/)
 }
 
 function onButton2() {
-  console.log('Entered settings');
+  alert("v1.0 beta")
 }
