@@ -1,1 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Greeny's Learning Hall</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+</head>
+<body class="game-page">
+  <div class="game-shell">
+    <header class="hud">
+      <div>
+        <h1>Greeny's Learning Hall</h1>
+        <p class="subtitle">A playful school challenge inspired by classic notebook-chasing games.</p>
+      </div>
+      <div class="hud-stats">
+        <div class="stat-card">
+          <span class="stat-label">Notebooks</span>
+          <strong id="notebookCount">0 / 7</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Stars</span>
+          <strong id="starCount">0</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Order</span>
+          <strong id="ruleCount">0</strong>
+        </div>
+      </div>
+    </header>
 
+    <main class="game-layout">
+      <section class="panel world-panel">
+        <div class="world-header">
+          <div>
+            <h2>School Map</h2>
+            <p>Use the arrow keys or the on-screen buttons to move through the halls.</p>
+          </div>
+          <button id="resetSaveButton" class="secondary-button" type="button">Reset Save</button>
+        </div>
+        <div id="map" class="map-grid" aria-label="Game map"></div>
+        <div class="controls">
+          <button data-move="up" type="button">↑</button>
+          <div class="controls-row">
+            <button data-move="left" type="button">←</button>
+            <button data-move="down" type="button">↓</button>
+            <button data-move="right" type="button">→</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel info-panel">
+        <section class="character-card">
+          <h2 id="roomName">Welcome Hall</h2>
+          <p id="roomDescription">Explore the school, solve notebook questions, and keep the halls running smoothly.</p>
+        </section>
+
+        <section class="character-card greeny-card">
+          <h3>Greeny</h3>
+          <p id="greenyMood">Greeny is cheerful and ready to help you learn.</p>
+        </section>
+
+        <section class="character-card">
+          <h3>Hall Watch</h3>
+          <p id="principalStatus">The principal is calm because the rules are being followed.</p>
+        </section>
+
+        <section class="character-card">
+          <h3>Playground Pal</h3>
+          <p id="jumpropeStatus">The jump rope champion is waiting for a fun challenge.</p>
+        </section>
+
+        <section class="character-card">
+          <h3>Inventory</h3>
+          <ul id="inventoryList" class="inventory-list"></ul>
+        </section>
+
+        <section id="eventPanel" class="event-panel">
+          <h3>Activity Panel</h3>
+          <div id="eventContent">
+            <p>Step into a special room to start an activity.</p>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="../assets/js/game.js"></script>
+</body>
+</html>
