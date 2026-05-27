@@ -7,11 +7,34 @@ document.addEventListener('click', () => {
   if (bgMusic.paused) bgMusic.play();
 }, { once: true });
 
-// ── 6 Placeholder Functions ──────────────────────────────────
+function fn01() {
+  window.location.replace("../game/");
+}
+function fn02() {
+   localStorage.setItem('gamedata', '[]');
+}
+function fn03() {
+  function isValidJSON(jsonString) {
+    try {
+        JSON.parse(jsonString);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
 
-function fn01() { console.log('fn01 called'); }
-function fn02() { console.log('fn02 called'); }
-function fn03() { console.log('fn03 called'); }
-function fn04() { console.log('fn04 called'); }
-function fn05() { console.log('fn05 called'); }
-function fn06() { console.log('fn06 called'); }
+// 1. Get the item from localStorage
+const rawData = localStorage.getItem('myKey');
+
+// 2. Check if the item actually exists first
+if (rawData === null) {
+    alert("Item not existing!")
+} else if (isValidJSON(rawData)) {
+    
+    const parsedData = JSON.parse(rawData);
+} else {
+    alert("Invalid file; upon closing this message the file will be reset")
+    localStorage.setitem('gamedata', '[]')
+}
+
+}
