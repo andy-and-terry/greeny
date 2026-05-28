@@ -263,7 +263,8 @@ body{
            <img src="assets/gameover.png"/>
      ================================================ -->
 <div id="screen-gameover" class="screen">
-  <div id="gameover-heading">YOU FAILED.</div>
+  <!--<div id="gameover-heading">YOU FAILED.</div>-->
+  <img src="assets/gameover.png"/>
   <div class="stat-line" id="go-s1"></div>
   <div class="stat-line" id="go-s2"></div>
   <button class="btn" onclick="startGame()">TRY AGAIN</button>
@@ -291,7 +292,7 @@ body{
      ================================================ -->
 <div id="hud">
   <!-- TODO: Replace emoji+text with your notebook counter sprite -->
-  <div id="hud-nb">&#128211; 0 / 7</div>
+  <div id="hud-nb">Notebooks: 0 / 7</div>
   <div id="hud-stamina">
     <!-- TODO: Replace label+bar with your stamina sprite -->
     <div id="hud-stamina-label">STAMINA</div>
@@ -305,8 +306,8 @@ body{
   </div>
   <!-- TODO: Replace warning text with your warning sprites -->
   <div id="hud-warnings">
-    <div class="hud-warn" id="warn-greeny">&#128066; Greeny is nearby!</div>
-    <div class="hud-warn" id="warn-principal">&#128274; Principal!</div>
+    <div class="hud-warn" id="warn-greeny">&#9888; Greeny is nearby!</div>
+    <div class="hud-warn" id="warn-principal">&#128694; Principal!</div>
     <div class="hud-warn" id="warn-sweep">&#129529; Gotta Sweep!</div>
   </div>
   <div id="hud-detention">DETENTION<br><span id="det-timer">15</span>s</div>
@@ -363,7 +364,7 @@ body{
     <rect x="154" y="190" width="38" height="34" fill="/* TODO: Arm color */ #22aa22" stroke="#000" stroke-width="2"/>
   </svg>
   <!-- TODO: Replace with your Greeny intro dialogue image -->
-  <div id="intro-text">Oh, hello there. Welcome to my school. I am Greeny. I hope you are ready to learn!</div>
+  <div id="intro-text">Oh, hello there. Welcome to my schoolhouse. I am Greeny, and I hope you are ready to learn Math!</div>
 </div>
 
 <!-- ================================================
@@ -459,9 +460,9 @@ var CHAR_DEFS = {
     /* TODO: Replace lines with your Greeny audio cues + dialogue */
     angryLines:[
       /* TODO: Your Greeny angry dialogue */
-      'Why did you get that wrong?!',
-      'You need to do ALL your problems!',
-      'No more problems for YOU!'
+      'I HEAR EVERY DOOR YOU OPEN',
+      'I GET ANGRIER FOR EVERY QUESTION YOU GET WRONG',
+      'I HEAR MATH THAT BAD'
     ]
   },
 
@@ -478,7 +479,7 @@ var CHAR_DEFS = {
     detentionLines:[
       /* TODO: Your Principal dialogue */
       'No running in the halls!',
-      'No escaping detention!',
+      'No playing in the halls!',
       "That's a violation of school rules!"
     ]
   },
