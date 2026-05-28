@@ -1,90 +1,1171 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Greeny's Learning Hall</title>
-  <link rel="stylesheet" href="../assets/css/game.css" />
+<meta charset="UTF-8">
+<title>Greeny's Basics</title>
+<!-- Schoolbell font - closest free font to Baldi's handwritten style -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Schoolbell&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   GLOBAL RESET & BASE
+   TODO: Add your own background color/texture here
+   ============================================================ */
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#000; overflow:hidden;
+  font-family:'Schoolbell',cursive;
+  user-select:none; cursor:default;
+}
+
+/* ============================================================
+   SCREENS  (title / gameover / win)
+   Each is a full-page overlay shown/hidden via JS
+   ============================================================ */
+
+/* --- TITLE SCREEN --- */
+#screen-title {
+  position:fixed; inset:0;
+  /* TODO: Replace background with your title screen image */
+  background:#ffffff;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:200;
+}
+#screen-title h1 {
+  /* TODO: Replace with <img> of your title card artwork */
+  font-size:64px; color:#00aa00;
+  text-shadow:4px 4px 0 #000,-2px -2px 0 #000;
+  margin-bottom:6px; letter-spacing:4px;
+}
+#screen-title .subtitle { font-size:16px; color:#333; margin-bottom:48px; }
+#screen-title button, #screen-gameover button, #screen-win button {
+  /* TODO: Replace with your button sprite */
+  font-family:inherit; font-size:22px;
+  background:#ffff00; color:#000;
+  border:3px solid #000; padding:12px 40px;
+  cursor:pointer; margin:6px;
+  box-shadow:4px 4px 0 #000;
+}
+#screen-title button:active { transform:translate(2px,2px); box-shadow:2px 2px 0 #000; }
+#title-best { font-size:13px; color:#555; margin-top:24px; }
+
+/* --- GAME OVER --- */
+#screen-gameover {
+  position:fixed; inset:0; background:#fff;
+  display:none; flex-direction:column;
+  align-items:center; justify-content:center; z-index:200;
+}
+#screen-gameover h2 { font-size:52px; color:#cc0000; text-shadow:3px 3px 0 #000; margin-bottom:20px; }
+#screen-gameover .stat { font-size:18px; color:#333; margin:6px 0; }
+
+/* --- WIN --- */
+#screen-win {
+  position:fixed; inset:0; background:#fff;
+  display:none; flex-direction:column;
+  align-items:center; justify-content:center; z-index:200;
+}
+#screen-win h2 { font-size:52px; color:#007700; text-shadow:3px 3px 0 #000; margin-bottom:20px; }
+#screen-win .stat { font-size:18px; color:#333; margin:6px 0; }
+
+/* ============================================================
+   GAME CANVAS
+   ============================================================ */
+#gameCanvas { display:block; position:fixed; top:0; left:0; }
+
+/* ============================================================
+   HUD
+   ============================================================ */
+#hud { position:fixed; inset:0; pointer-events:none; display:none; z-index:10; }
+
+/* Notebook counter - top left */
+/* TODO: Replace with your notebook counter sprite */
+#hud-nb {
+  position:absolute; top:12px; left:12px;
+  background:rgba(255,255,255,0.88); border:3px solid #000;
+  padding:8px 16px; font-size:20px; font-family:inherit;
+  box-shadow:3px 3px 0 #000;
+}
+
+/* Stamina bar - top right */
+#hud-stamina {
+  position:absolute; top:12px; right:12px;
+  background:rgba(255,255,255,0.88); border:3px solid #000;
+  padding:8px 12px; box-shadow:3px 3px 0 #000;
+}
+#hud-stamina-label { font-size:12px; color:#333; margin-bottom:4px; font-family:inherit; }
+#hud-stamina-track { width:160px; height:14px; background:#ccc; border:2px solid #000; }
+#hud-stamina-fill  { height:100%; background:#00cc44; transition:width .1s,background .1s; }
+
+/* Item slots - bottom left (press 1/2/3 to use) */
+#hud-items { position:absolute; bottom:12px; left:12px; display:flex; gap:8px; }
+.item-slot {
+  width:58px; height:58px;
+  background:rgba(255,255,255,0.88); border:3px solid #000;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-family:inherit; text-align:center;
+  box-shadow:3px 3px 0 #000;
+}
+
+/* "You can hear Greeny" indicator */
+#hud-hearing {
+  position:absolute; bottom:80px; left:50%; transform:translateX(-50%);
+  font-size:14px; font-family:inherit;
+  background:rgba(255,255,255,0.9); border:2px solid #000;
+  padding:4px 12px; display:none;
+}
+
+/* Detention timer */
+#hud-detention {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:28px; font-family:inherit; color:#cc0000;
+  background:rgba(255,255,255,0.92); border:3px solid #cc0000;
+  padding:12px 24px; display:none; text-align:center;
+  box-shadow:4px 4px 0 #000;
+}
+
+/* Pickup prompt */
+#hud-pickup {
+  position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+  font-size:15px; font-family:inherit;
+  background:rgba(255,255,255,0.9); border:2px solid #000;
+  padding:5px 14px; display:none;
+}
+
+/* ============================================================
+   NOTEBOOK PICKUP FLASH + MATH PUZZLE
+   Shown full-screen when player touches a notebook
+   ============================================================ */
+#nb-flash {
+  position:fixed; inset:0; background:#fff;
+  display:none; align-items:center; justify-content:center; z-index:50;
+  /* TODO: Add your notebook collect animation here */
+}
+#nb-flash-box {
+  /* TODO: Replace with your notebook open sprite */
+  background:#ffffcc; border:4px solid #000;
+  padding:30px 50px; text-align:center;
+  box-shadow:6px 6px 0 #000;
+}
+#nb-num      { font-size:46px; font-family:inherit; font-weight:bold; }
+#nb-question { font-size:24px; font-family:inherit; margin:12px 0; }
+#nb-input    { font-family:inherit; font-size:28px; width:120px; text-align:center; border:3px solid #000; padding:6px; background:#fff; }
+#nb-hint     { font-size:13px; color:#555; margin-top:8px; font-family:inherit; }
+#nb-wrong    { font-size:14px; color:#cc0000; margin-top:6px; min-height:20px; font-family:inherit; }
+
+/* ============================================================
+   GREENY JUMPSCARE OVERLAY
+   ============================================================ */
+#jumpscare {
+  position:fixed; inset:0; background:#fff;
+  display:none; align-items:center; justify-content:center; z-index:300;
+  /* TODO: Replace background/content with your jumpscare image */
+}
+#jumpscare svg { animation:jsGrow .25s ease-out; }
+@keyframes jsGrow { from{transform:scale(0.3);} to{transform:scale(1);} }
+
+/* Click-to-lock hint */
+#lock-hint {
+  position:fixed; bottom:60px; left:50%; transform:translateX(-50%);
+  font-size:13px; font-family:inherit; color:#fff;
+  background:rgba(0,0,0,0.72); padding:5px 14px;
+  display:none; z-index:20;
+}
+
+/* Minimap (press M to toggle) */
+#minimap { position:fixed; bottom:12px; right:12px; border:2px solid #000; display:none; z-index:10; pointer-events:none; }
+</style>
 </head>
-<body class="game-page">
-  <div class="game-shell">
-    <header class="hud">
-      <div>
-        <h1>Greeny's Learning Hall</h1>
-        <p class="subtitle">A playful school challenge inspired by classic notebook-chasing games.</p>
-      </div>
-      <div class="hud-stats">
-        <div class="stat-card">
-          <span class="stat-label">Notebooks</span>
-          <strong id="notebookCount">0 / 7</strong>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Stars</span>
-          <strong id="starCount">0</strong>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Order</span>
-          <strong id="ruleCount">0</strong>
-        </div>
-      </div>
-    </header>
+<body>
 
-    <main class="game-layout">
-      <section class="panel world-panel">
-        <div class="world-header">
-          <div>
-            <h2>School Map</h2>
-            <p>Use the arrow keys or the on-screen buttons to move through the halls.</p>
-          </div>
-          <button id="resetSaveButton" class="secondary-button" type="button">Reset Save</button>
-        </div>
-        <div id="map" class="map-grid" aria-label="Game map"></div>
-        <div class="controls">
-          <button data-move="up" type="button">↑</button>
-          <div class="controls-row">
-            <button data-move="left" type="button">←</button>
-            <button data-move="down" type="button">↓</button>
-            <button data-move="right" type="button">→</button>
-          </div>
-        </div>
-      </section>
+<!-- ============================================================
+     TITLE SCREEN
+     TODO: Replace h1 with <img src="your-title-card.png">
+     ============================================================ -->
+<div id="screen-title">
+  <h1>GREENY</h1>
+  <div class="subtitle">BASICS IN EDUCATION AND LEARNING</div>
+  <button onclick="startGame()">&#9654; PLAY</button>
+  <button onclick="viewScores()">&#128203; HIGH SCORES</button>
+  <div id="title-best"></div>
+</div>
 
-      <aside class="panel info-panel">
-        <section class="character-card">
-          <h2 id="roomName">Welcome Hall</h2>
-          <p id="roomDescription">Explore the school, solve notebook questions, and keep the halls running smoothly.</p>
-        </section>
+<!-- ============================================================
+     GAME OVER SCREEN
+     TODO: Replace h2 with your failed artwork
+     ============================================================ -->
+<div id="screen-gameover">
+  <h2>YOU FAILED.</h2>
+  <div class="stat" id="go-s1"></div>
+  <div class="stat" id="go-s2"></div>
+  <button onclick="startGame()">TRY AGAIN</button>
+  <button onclick="gotoTitle()">TITLE</button>
+</div>
 
-        <section class="character-card greeny-card">
-          <h3>Greeny</h3>
-          <p id="greenyMood">Greeny is cheerful and ready to help you learn.</p>
-        </section>
+<!-- ============================================================
+     WIN SCREEN
+     TODO: Replace h2 with your win artwork
+     ============================================================ -->
+<div id="screen-win">
+  <h2>YOU ESCAPED!</h2>
+  <div class="stat" id="win-s1"></div>
+  <div class="stat" id="win-s2"></div>
+  <button onclick="startGame()">PLAY AGAIN</button>
+  <button onclick="gotoTitle()">TITLE</button>
+</div>
 
-        <section class="character-card">
-          <h3>Hall Watch</h3>
-          <p id="principalStatus">The principal is calm because the rules are being followed.</p>
-        </section>
+<!-- 3D VIEW CANVAS -->
+<canvas id="gameCanvas"></canvas>
 
-        <section class="character-card">
-          <h3>Playground Pal</h3>
-          <p id="jumpropeStatus">The jump rope champion is waiting for a fun challenge.</p>
-        </section>
+<!-- HUD -->
+<div id="hud">
+  <!-- TODO: Replace text with your notebook sprite -->
+  <div id="hud-nb">&#128211; 0 / 7</div>
 
-        <section class="character-card">
-          <h3>Inventory</h3>
-          <ul id="inventoryList" class="inventory-list"></ul>
-        </section>
-
-        <section id="eventPanel" class="event-panel">
-          <h3>Activity Panel</h3>
-          <div id="eventContent">
-            <p>Step into a special room to start an activity.</p>
-          </div>
-        </section>
-      </aside>
-    </main>
+  <div id="hud-stamina">
+    <div id="hud-stamina-label">STAMINA</div>
+    <div id="hud-stamina-track"><div id="hud-stamina-fill" style="width:100%"></div></div>
   </div>
 
-  <script src="../assets/js/game.js"></script>
+  <!-- Item slots — press 1 2 3 to use -->
+  <!-- TODO: Replace .item-slot divs with your item sprite images -->
+  <div id="hud-items">
+    <div class="item-slot" id="slot0">empty</div>
+    <div class="item-slot" id="slot1">empty</div>
+    <div class="item-slot" id="slot2">empty</div>
+  </div>
+
+  <div id="hud-hearing">&#128066; Greeny is nearby!</div>
+  <div id="hud-detention">DETENTION<br><span id="det-timer">15</span>s</div>
+  <div id="hud-pickup">[ E ] Pick up</div>
+</div>
+
+<!-- ============================================================
+     NOTEBOOK FLASH + MATH PUZZLE
+     ============================================================ -->
+<div id="nb-flash">
+  <div id="nb-flash-box">
+    <!-- TODO: Replace with your notebook open animation/sprite -->
+    <div id="nb-num">Notebook #1</div>
+    <div id="nb-question">? + ? = ?</div>
+    <input type="number" id="nb-input" placeholder="answer">
+    <div id="nb-hint">Press ENTER to answer</div>
+    <div id="nb-wrong"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     GREENY JUMPSCARE
+     TODO: Replace entire SVG with your Greeny caught image
+     ============================================================ -->
+<div id="jumpscare">
+  <svg width="380" height="380" viewBox="0 0 380 380">
+    <ellipse cx="190" cy="190" rx="160" ry="170" fill="#22aa22" stroke="#000" stroke-width="5"/>
+    <ellipse cx="138" cy="158" rx="28" ry="30" fill="#fff" stroke="#000" stroke-width="3"/>
+    <ellipse cx="242" cy="158" rx="28" ry="30" fill="#fff" stroke="#000" stroke-width="3"/>
+    <circle cx="146" cy="163" r="14" fill="#000"/>
+    <circle cx="250" cy="163" r="14" fill="#000"/>
+    <circle cx="151" cy="158" r="5"  fill="#fff"/>
+    <circle cx="255" cy="158" r="5"  fill="#fff"/>
+    <line x1="108" y1="122" x2="166" y2="142" stroke="#003300" stroke-width="7" stroke-linecap="round"/>
+    <line x1="214" y1="142" x2="272" y2="122" stroke="#003300" stroke-width="7" stroke-linecap="round"/>
+    <path d="M128,248 Q190,232 252,248" stroke="#000" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <text x="40" y="55" font-size="28" fill="#cc0000" font-family="Schoolbell,cursive" font-weight="bold">NO. MORE. PROBLEMS.</text>
+  </svg>
+</div>
+
+<div id="lock-hint">Click game to enable mouse look</div>
+<canvas id="minimap" width="140" height="140"></canvas>
+
+<!-- ============================================================
+     MAIN GAME SCRIPT
+     All TODO comments mark spots to swap in your own assets
+     ============================================================ -->
+<script>
+/* ============================================================
+   CONSTANTS  — tune these to adjust game feel
+   ============================================================ */
+var CELL         = 64;
+var MAZE_W       = 21;   // must be odd
+var MAZE_H       = 21;   // must be odd
+var FOV          = Math.PI / 3;
+var HALF_FOV     = FOV / 2;
+var NUM_RAYS     = 560;
+var MAX_DIST     = 22 * 64;  // CELL inline to avoid TDZ
+var TOTAL_NB     = 7;
+var PLAYER_SPD   = 2.6;
+var RUN_SPD      = 4.2;
+var TURN_SPD     = 0.048;
+var MOUSE_SENS   = 0.0022;
+
+/* ============================================================
+   ITEM DEFINITIONS
+   Add your item types here.
+   TODO: Add an imgSrc field and use ctx.drawImage() in drawItem()
+   ============================================================ */
+var ITEMS = {
+  soda:    { label:'Energy\nFlavored',   color:'#44aaff', effect:'stamina'  },
+  whistle: { label:'Principal\nWhistle', color:'#ffdd00', effect:'distract' },
+  tape:    { label:'Tape\nPlayer',       color:'#884400', effect:'tape'     },
+  scissors:{ label:'Safety\nScissors',  color:'#cc4444', effect:'scissors' }
+};
+
+/* ============================================================
+   CHARACTER DEFINITIONS
+   TODO: Add Principal, Playtime, Bully etc. here
+   ============================================================ */
+var CHARS = {
+  greeny: {
+    color:       '#22aa22',
+    baseSpeed:   1.6,
+    speedPerNB:  0.38,   // gets faster each notebook collected
+    catchR:      CELL * 0.85,
+    hearR:       CELL * 10,
+    losR:        CELL * 14
+  }
+  /* TODO: Uncomment and fill in for more characters
+  ,principal: {
+    color:'#4444cc', baseSpeed:2.0, speedPerNB:0,
+    catchR:CELL*0.9, hearR:CELL*8, losR:CELL*10
+  }
+  */
+};
+
+/* ============================================================
+   LOCALSTORAGE KEY
+   All run data saved as array: [{ won, notebooks, timeMs, wrongAnswers, date }, ...]
+   ============================================================ */
+var SAVE_KEY = 'gamedata';
+
+/* ============================================================
+   GAME STATE  — populated by initGame()
+   ============================================================ */
+var G = {
+  state:       'menu',   // 'menu' | 'playing' | 'caught' | 'won'
+  player:      null,
+  notebooks:   [],
+  characters:  [],
+  floorItems:  [],
+  heldItems:   [null, null, null],
+  nbCollected: 0,
+  wrongCount:  0,
+  startTime:   0,
+  endTime:     0,
+  mathOpen:    false,
+  mathNB:      null,
+  mathPhase:   0,
+  inDetention: false,
+  detTimer:    0,
+  showMap:     false,
+  greenyShown: false
+};
+
+/* ============================================================
+   CANVAS REFS  — assigned in startGame() so DOM is ready
+   ============================================================ */
+var canvas = null;
+var ctx    = null;
+var W      = 0;
+var H      = 0;
+
+function resizeCanvas() {
+  if (!canvas) return;
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+
+/* ============================================================
+   SAVE / LOAD
+   ============================================================ */
+function loadSaves() {
+  try {
+    var raw = localStorage.getItem(SAVE_KEY);
+    var arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch(e) { return []; }
+}
+
+function saveRun(won, notebooks, timeMs, wrongAnswers) {
+  var runs = loadSaves();
+  runs.push({ won:won, notebooks:notebooks, timeMs:timeMs, wrongAnswers:wrongAnswers, date:Date.now() });
+  localStorage.setItem(SAVE_KEY, JSON.stringify(runs));
+}
+
+function bestTime() {
+  var wins = loadSaves().filter(function(r){ return r.won; });
+  if (!wins.length) return null;
+  return Math.min.apply(null, wins.map(function(r){ return r.timeMs; }));
+}
+
+/* ============================================================
+   MAP  — map[y][x]: 1=wall, 0=floor
+   TODO: Replace with a hand-crafted array for a fixed school layout
+   ============================================================ */
+var map = [];
+
+function generateMaze() {
+  var y, x;
+  map = [];
+  for (y = 0; y < MAZE_H; y++) {
+    map.push([]);
+    for (x = 0; x < MAZE_W; x++) map[y].push(1);
+  }
+
+  // Recursive backtracker carve
+  function carve(cx, cy) {
+    var dirs = [[0,-2],[2,0],[0,2],[-2,0]].sort(function(){ return Math.random()-0.5; });
+    for (var i=0; i<dirs.length; i++) {
+      var dx=dirs[i][0], dy=dirs[i][1];
+      var nx=cx+dx, ny=cy+dy;
+      if (nx>0 && ny>0 && nx<MAZE_W-1 && ny<MAZE_H-1 && map[ny][nx]===1) {
+        map[cy+dy/2][cx+dx/2]=0;
+        map[ny][nx]=0;
+        carve(nx,ny);
+      }
+    }
+  }
+  map[1][1]=0; carve(1,1);
+
+  // Extra openings for a more school-like open layout
+  for (var i=0; i<40; i++) {
+    var ex = 1+Math.floor(Math.random()*Math.floor((MAZE_W-2)/2))*2;
+    var ey = 1+Math.floor(Math.random()*Math.floor((MAZE_H-2)/2))*2;
+    if (Math.random()<0.5 && ex+1<MAZE_W-1) map[ey][ex+1]=0;
+    else if (ey+1<MAZE_H-1) map[ey+1][ex]=0;
+  }
+}
+
+/* ============================================================
+   MAP HELPERS
+   ============================================================ */
+function wallAt(wx, wy) {
+  var mx=Math.floor(wx/CELL), my=Math.floor(wy/CELL);
+  if (mx<0||my<0||mx>=MAZE_W||my>=MAZE_H) return true;
+  return map[my][mx]===1;
+}
+
+function openCells(exclude) {
+  exclude = exclude||[];
+  var cells=[];
+  for (var y=1;y<MAZE_H-1;y++)
+    for (var x=1;x<MAZE_W-1;x++)
+      if (map[y][x]===0 && !exclude.some(function(e){return e[0]===x&&e[1]===y;}))
+        cells.push([x,y]);
+  return cells;
+}
+
+function randomCell(exclude) {
+  var cells=openCells(exclude);
+  return cells[Math.floor(Math.random()*cells.length)];
+}
+
+function cellCenter(cx, cy) {
+  return { x:cx*CELL+CELL/2, y:cy*CELL+CELL/2 };
+}
+
+/* ============================================================
+   MATH QUESTION GENERATOR
+   TODO: Make the 3rd question in each notebook impossible (like Baldi)
+   ============================================================ */
+function makeQ() {
+  var ops=['+','-','x'];
+  var op=ops[Math.floor(Math.random()*ops.length)];
+  var a,b,ans;
+  if(op==='+'){a=ri(1,20);b=ri(1,20);ans=a+b;}
+  else if(op==='-'){a=ri(10,30);b=ri(1,10);ans=a-b;}
+  else{a=ri(2,9);b=ri(2,9);ans=a*b;}
+  return {text:a+' '+op+' '+b+' = ?', answer:ans};
+}
+function ri(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+/* ============================================================
+   INIT GAME  — fresh state every run
+   ============================================================ */
+function initGame() {
+  generateMaze();
+
+  var used=[];
+  var sc=randomCell(used); used.push(sc);
+  var spos=cellCenter(sc[0],sc[1]);
+
+  G.state       = 'playing';
+  G.nbCollected = 0;
+  G.wrongCount  = 0;
+  G.startTime   = performance.now();
+  G.endTime     = 0;
+  G.mathOpen    = false;
+  G.mathNB      = null;
+  G.mathPhase   = 0;
+  G.inDetention = false;
+  G.detTimer    = 0;
+  G.showMap     = false;
+  G.greenyShown = false;
+  G.heldItems   = [null,null,null];
+
+  G.player = {
+    x:spos.x, y:spos.y,
+    angle:Math.random()*Math.PI*2,
+    stamina:100, maxStamina:100
+  };
+
+  // Spawn notebooks (7 total like Baldi)
+  // TODO: If you want fixed notebook positions, replace randomCell() with hardcoded cells
+  G.notebooks=[];
+  for (var i=0;i<TOTAL_NB;i++) {
+    var c=randomCell(used); used.push(c);
+    var p=cellCenter(c[0],c[1]);
+    G.notebooks.push({
+      id:i, x:p.x, y:p.y, collected:false,
+      // Each notebook has 3 questions (like Baldi's)
+      qs:[makeQ(),makeQ(),makeQ()]
+    });
+  }
+
+  // Spawn Greeny
+  G.characters=[];
+  var gc=randomCell(used); used.push(gc);
+  var gp=cellCenter(gc[0],gc[1]);
+  G.characters.push({
+    id:'greeny', x:gp.x, y:gp.y, wanderAngle:0,
+    angry:false, angryMs:0, def:CHARS.greeny
+  });
+
+  // TODO: Spawn more characters here
+  // var c2=randomCell(used); used.push(c2); ...
+
+  // Spawn floor items
+  G.floorItems=[];
+  var ikeys=Object.keys(ITEMS);
+  for (var j=0;j<4;j++) {
+    var ic=randomCell(used); used.push(ic);
+    var ip=cellCenter(ic[0],ic[1]);
+    G.floorItems.push({ type:ikeys[j%ikeys.length], x:ip.x, y:ip.y, collected:false });
+  }
+
+  updateHeldHUD();
+  updateHUD();
+}
+
+/* ============================================================
+   MATH PUZZLE
+   ============================================================ */
+function openMath(nb) {
+  if (G.mathOpen) return;
+  G.mathOpen=true; G.mathNB=nb; G.mathPhase=0;
+  showMathUI();
+}
+
+function showMathUI() {
+  var nb=G.mathNB, phase=G.mathPhase;
+  document.getElementById('nb-num').textContent='Notebook #'+(nb.id+1)+'  ('+(phase+1)+'/3)';
+  document.getElementById('nb-question').textContent=nb.qs[phase].text;
+  document.getElementById('nb-input').value='';
+  document.getElementById('nb-wrong').textContent='';
+  document.getElementById('nb-flash').style.display='flex';
+  setTimeout(function(){ document.getElementById('nb-input').focus(); },60);
+}
+
+function submitAnswer() {
+  var val=parseInt(document.getElementById('nb-input').value,10);
+  if (isNaN(val)) return;
+  var nb=G.mathNB, phase=G.mathPhase;
+
+  if (val===nb.qs[phase].answer) {
+    // Correct
+    if (phase<2) {
+      G.mathPhase++; showMathUI();
+    } else {
+      // All 3 done — notebook collected!
+      nb.collected=true; G.nbCollected++;
+      document.getElementById('nb-flash').style.display='none';
+      G.mathOpen=false; G.mathNB=null;
+      updateHUD();
+      if (G.nbCollected>=TOTAL_NB) triggerWin();
+    }
+  } else {
+    // Wrong — anger Greeny (like Baldi's ruler slap getting faster)
+    G.wrongCount++;
+    document.getElementById('nb-wrong').textContent='Wrong! ('+G.wrongCount+' mistake'+(G.wrongCount>1?'s':'')+')';
+    document.getElementById('nb-input').value='';
+    var greeny=G.characters.find(function(c){return c.id==='greeny';});
+    if (greeny) {
+      greeny.angry=true; greeny.angryMs=5000;
+      // Teleport Greeny closer every 3 wrong answers
+      if (G.wrongCount%3===0) teleportCloser(greeny, CELL*4);
+    }
+    // TODO: Play wrong-answer sound / speed up ruler slap here
+  }
+}
+
+function teleportCloser(ch, maxDist) {
+  var p=G.player;
+  var candidates=openCells().sort(function(){return Math.random()-0.5;}).slice(0,30);
+  var best=null, bestD=Infinity;
+  for (var i=0;i<candidates.length;i++) {
+    var pos=cellCenter(candidates[i][0],candidates[i][1]);
+    var d=Math.hypot(pos.x-p.x, pos.y-p.y);
+    if (d<maxDist && d<bestD && d>CELL) { best=pos; bestD=d; }
+  }
+  if (best) { ch.x=best.x; ch.y=best.y; }
+}
+
+/* ============================================================
+   CHARACTER AI
+   ============================================================ */
+function updateChars(dt) {
+  var p=G.player;
+  for (var i=0;i<G.characters.length;i++) {
+    var ch=G.characters[i], def=ch.def;
+    var dist=Math.hypot(ch.x-p.x, ch.y-p.y);
+    var spd=(def.baseSpeed+G.nbCollected*def.speedPerNB)*(ch.angry?1.6:1.0);
+
+    // LOS / hearing
+    if (dist<def.hearR || (dist<def.losR && hasLOS(ch.x,ch.y,p.x,p.y))) {
+      ch.angry=true; ch.angryMs=Math.max(ch.angryMs,3000);
+    }
+    if (ch.angryMs>0) {
+      ch.angryMs-=dt*1000;
+      if (ch.angryMs<=0){ch.angryMs=0; ch.angry=false;}
+    }
+
+    if (ch.angry || dist<CELL*4) {
+      moveToward(ch, p.x, p.y, spd*dt*60);
+    } else {
+      wander(ch, spd*0.4*dt*60);
+    }
+
+    // Catch player
+    if (dist<def.catchR) { catchPlayer(); return; }
+  }
+
+  // Hearing HUD indicator
+  var anyNear=G.characters.some(function(c){return Math.hypot(c.x-p.x,c.y-p.y)<CHARS.greeny.hearR;});
+  document.getElementById('hud-hearing').style.display=anyNear?'block':'none';
+}
+
+function moveToward(ch, tx, ty, step) {
+  var ang=Math.atan2(ty-ch.y, tx-ch.x);
+  var nx=ch.x+Math.cos(ang)*step, ny=ch.y+Math.sin(ang)*step;
+  if(!wallAt(nx,ch.y)) ch.x=nx;
+  if(!wallAt(ch.x,ny)) ch.y=ny;
+}
+
+function wander(ch, step) {
+  ch.wanderAngle=(ch.wanderAngle||0)+(Math.random()-0.5)*0.08;
+  var nx=ch.x+Math.cos(ch.wanderAngle)*step, ny=ch.y+Math.sin(ch.wanderAngle)*step;
+  if(!wallAt(nx,ch.y)) ch.x=nx; else ch.wanderAngle+=Math.PI/2;
+  if(!wallAt(ch.x,ny)) ch.y=ny; else ch.wanderAngle+=Math.PI/2;
+}
+
+function hasLOS(x1,y1,x2,y2) {
+  var dx=x2-x1, dy=y2-y1, d=Math.sqrt(dx*dx+dy*dy);
+  var steps=Math.ceil(d/8);
+  for(var i=0;i<=steps;i++) if(wallAt(x1+dx*(i/steps),y1+dy*(i/steps))) return false;
+  return true;
+}
+
+/* ============================================================
+   CATCH PLAYER → jumpscare → game over
+   ============================================================ */
+function catchPlayer() {
+  if (G.greenyShown) return;
+  G.greenyShown=true; G.state='caught';
+  G.endTime=performance.now();
+  document.getElementById('jumpscare').style.display='flex';
+  // TODO: Play Greeny caught sound here
+  setTimeout(function(){
+    document.getElementById('jumpscare').style.display='none';
+    saveRun(false, G.nbCollected, G.endTime-G.startTime, G.wrongCount);
+    showGameOver();
+  }, 1600);
+}
+
+/* ============================================================
+   DETENTION  (trigger from Principal character)
+   TODO: Call startDetention(15) when Principal catches player in halls
+   ============================================================ */
+function startDetention(secs) {
+  G.inDetention=true; G.detTimer=secs;
+  document.getElementById('hud-detention').style.display='block';
+}
+function tickDetention(dt) {
+  if(!G.inDetention) return;
+  G.detTimer-=dt;
+  document.getElementById('det-timer').textContent=Math.max(0,Math.ceil(G.detTimer));
+  if(G.detTimer<=0){G.inDetention=false;document.getElementById('hud-detention').style.display='none';}
+}
+
+/* ============================================================
+   ITEMS
+   TODO: Add logic for your own items here
+   ============================================================ */
+function applyItem(type) {
+  if (type==='soda') {
+    G.player.stamina=Math.min(G.player.maxStamina,G.player.stamina+50);
+  } else if (type==='whistle') {
+    // TODO: Distract all characters briefly
+  } else if (type==='tape') {
+    // TODO: Play music, slow nearby characters
+  } else if (type==='scissors') {
+    // TODO: Reduce Greeny speed temporarily
+  }
+}
+
+function pickupItem(it) {
+  var slot=G.heldItems.indexOf(null);
+  if(slot===-1) return false;
+  it.collected=true; G.heldItems[slot]=it.type;
+  updateHeldHUD(); return true;
+}
+
+function useSlot(slot) {
+  var t=G.heldItems[slot];
+  if(!t) return;
+  applyItem(t); G.heldItems[slot]=null; updateHeldHUD();
+}
+
+function updateHeldHUD() {
+  for(var i=0;i<3;i++){
+    var el=document.getElementById('slot'+i);
+    var t=G.heldItems[i];
+    if(t){
+      var def=ITEMS[t];
+      // TODO: Replace textContent with <img> of item sprite
+      el.textContent=def.label.replace('\n',' ');
+      el.style.background=def.color+'99';
+    } else {
+      el.textContent='empty'; el.style.background='rgba(255,255,255,0.88)';
+    }
+  }
+}
+
+/* ============================================================
+   PLAYER MOVEMENT
+   ============================================================ */
+function updatePlayer(dt) {
+  if(G.mathOpen||G.inDetention||G.state!=='playing'||!G.player) return;
+  var p=G.player;
+  var run=keys.ShiftLeft||keys.ShiftRight;
+  if(run&&p.stamina>0) p.stamina=Math.max(0,p.stamina-dt*28);
+  else if(!run) p.stamina=Math.min(p.maxStamina,p.stamina+dt*12);
+  var spd=(run&&p.stamina>0)?RUN_SPD:(run?PLAYER_SPD*0.5:PLAYER_SPD);
+  var step=spd*dt*60;
+  var nx,ny;
+
+  if(keys.KeyW||keys.ArrowUp){
+    nx=p.x+Math.cos(p.angle)*step; ny=p.y+Math.sin(p.angle)*step;
+    if(!wallAt(nx,p.y))p.x=nx; if(!wallAt(p.x,ny))p.y=ny;
+  }
+  if(keys.KeyS||keys.ArrowDown){
+    nx=p.x-Math.cos(p.angle)*step*0.6; ny=p.y-Math.sin(p.angle)*step*0.6;
+    if(!wallAt(nx,p.y))p.x=nx; if(!wallAt(p.x,ny))p.y=ny;
+  }
+  if(keys.KeyA){
+    nx=p.x+Math.cos(p.angle-Math.PI/2)*step*0.75; ny=p.y+Math.sin(p.angle-Math.PI/2)*step*0.75;
+    if(!wallAt(nx,p.y))p.x=nx; if(!wallAt(p.x,ny))p.y=ny;
+  }
+  if(keys.KeyD){
+    nx=p.x+Math.cos(p.angle+Math.PI/2)*step*0.75; ny=p.y+Math.sin(p.angle+Math.PI/2)*step*0.75;
+    if(!wallAt(nx,p.y))p.x=nx; if(!wallAt(p.x,ny))p.y=ny;
+  }
+  if(keys.ArrowLeft)  p.angle-=TURN_SPD;
+  if(keys.ArrowRight) p.angle+=TURN_SPD;
+
+  checkNearNB();
+  checkNearItem();
+}
+
+function checkNearNB() {
+  if(G.mathOpen) return;
+  for(var i=0;i<G.notebooks.length;i++){
+    var nb=G.notebooks[i];
+    if(nb.collected) continue;
+    if(Math.hypot(nb.x-G.player.x,nb.y-G.player.y)<CELL*0.88){openMath(nb);return;}
+  }
+}
+
+function checkNearItem() {
+  var el=document.getElementById('hud-pickup');
+  for(var i=0;i<G.floorItems.length;i++){
+    var it=G.floorItems[i];
+    if(it.collected) continue;
+    if(Math.hypot(it.x-G.player.x,it.y-G.player.y)<CELL*0.9){
+      el.style.display='block';
+      el.textContent='[ E ] Pick up '+ITEMS[it.type].label.replace('\n',' ');
+      if(keys.KeyE){ pickupItem(it); keys.KeyE=false; el.style.display='none'; }
+      return;
+    }
+  }
+  el.style.display='none';
+}
+
+/* ============================================================
+   HUD UPDATE
+   ============================================================ */
+function updateHUD() {
+  if(!G.player) return;
+  document.getElementById('hud-nb').textContent='&#128211; '+G.nbCollected+' / '+TOTAL_NB;
+  var pct=G.player.stamina/G.player.maxStamina*100;
+  var fill=document.getElementById('hud-stamina-fill');
+  fill.style.width=pct+'%';
+  fill.style.background=pct<20?'#ff4444':pct<50?'#ffaa00':'#00cc44';
+}
+
+/* ============================================================
+   RAYCASTER — WALL RENDERING
+   TODO: Swap fillStyle with ctx.drawImage() for textured walls
+   ============================================================ */
+var zBuf=[];
+
+function renderWalls() {
+  zBuf=[];
+  for(var i=0;i<NUM_RAYS;i++) zBuf.push(MAX_DIST);
+
+  // Ceiling
+  // TODO: Replace with ceiling texture
+  ctx.fillStyle='#aaddaa';
+  ctx.fillRect(0,0,W,H/2);
+
+  // Floor
+  // TODO: Replace with floor texture / tiled image
+  ctx.fillStyle='#887744';
+  ctx.fillRect(0,H/2,W,H/2);
+
+  var colW=W/NUM_RAYS;
+  for(var i=0;i<NUM_RAYS;i++){
+    var ray=G.player.angle-HALF_FOV+(i/NUM_RAYS)*FOV;
+    var hit=castRay(ray);
+    var corr=hit.dist*Math.cos(ray-G.player.angle);
+    zBuf[i]=corr;
+    if(!hit.wall) continue;
+    var wallH=Math.min(H*4,(CELL/corr)*H*0.85);
+    var top=(H-wallH)/2;
+    // Shade walls by distance + side (N/S darker than E/W)
+    // TODO: Replace with texture: ctx.drawImage(wallTex, texX, 0, 1, TEX_H, col, top, colW, wallH)
+    var shade=Math.max(30,Math.min(220,220-corr*0.55));
+    var sm=hit.side?0.72:1.0;
+    var r=Math.floor(shade*0.32*sm), g=Math.floor(shade*0.78*sm), b=Math.floor(shade*0.32*sm);
+    ctx.fillStyle='rgb('+r+','+g+','+b+')';
+    ctx.fillRect(Math.floor(i*colW),Math.floor(top),Math.ceil(colW)+1,Math.ceil(wallH));
+  }
+}
+
+function castRay(angle) {
+  var cos=Math.cos(angle), sin=Math.sin(angle);
+  for(var d=1;d<MAX_DIST;d+=3){
+    var rx=G.player.x+cos*d, ry=G.player.y+sin*d;
+    var mx=Math.floor(rx/CELL), my=Math.floor(ry/CELL);
+    if(mx<0||my<0||mx>=MAZE_W||my>=MAZE_H) return {dist:d,wall:1,side:0};
+    if(map[my][mx]===1){
+      var prx=G.player.x+cos*(d-3), pry=G.player.y+sin*(d-3);
+      var side=(Math.floor(prx/CELL)!==mx)?0:1;
+      return {dist:d,wall:1,side:side};
+    }
+  }
+  return {dist:MAX_DIST,wall:0,side:0};
+}
+
+/* ============================================================
+   SPRITE PROJECTION
+   ============================================================ */
+function projectEnt(wx, wy) {
+  var dx=wx-G.player.x, dy=wy-G.player.y;
+  var dist=Math.sqrt(dx*dx+dy*dy);
+  if(dist<1) return null;
+  var rel=Math.atan2(dy,dx)-G.player.angle;
+  while(rel<-Math.PI) rel+=Math.PI*2;
+  while(rel>Math.PI)  rel-=Math.PI*2;
+  if(Math.abs(rel)>HALF_FOV+0.35) return null;
+  var sx=(W/2)+Math.tan(rel)*(W/2)/Math.tan(HALF_FOV);
+  var h=Math.min(H*1.5,(CELL/dist)*H*0.85);
+  return {sx:sx,dist:dist,h:h};
+}
+
+function renderSprites() {
+  var sprites=[];
+  var i;
+  for(i=0;i<G.notebooks.length;i++){
+    var nb=G.notebooks[i]; if(nb.collected) continue;
+    var sp=projectEnt(nb.x,nb.y); if(sp) sprites.push({sp:sp,kind:'nb',obj:nb});
+  }
+  for(i=0;i<G.floorItems.length;i++){
+    var it=G.floorItems[i]; if(it.collected) continue;
+    var sp=projectEnt(it.x,it.y); if(sp) sprites.push({sp:sp,kind:'item',obj:it});
+  }
+  for(i=0;i<G.characters.length;i++){
+    var ch=G.characters[i];
+    var sp=projectEnt(ch.x,ch.y); if(sp) sprites.push({sp:sp,kind:'char',obj:ch});
+  }
+  sprites.sort(function(a,b){return b.sp.dist-a.sp.dist;});
+
+  var colW=W/NUM_RAYS;
+  for(i=0;i<sprites.length;i++){
+    var s=sprites[i]; if(s.sp.dist>MAX_DIST*0.92) continue;
+    var sw=s.sp.h*0.85, sx=s.sp.sx-sw/2, sy=(H-s.sp.h)/2;
+    var c0=Math.floor(sx/colW), c1=Math.floor((sx+sw)/colW);
+    var vis=false;
+    for(var c=Math.max(0,c0);c<=Math.min(NUM_RAYS-1,c1);c++) if(zBuf[c]>=s.sp.dist){vis=true;break;}
+    if(!vis) continue;
+    ctx.save();
+    ctx.globalAlpha=Math.min(1,Math.max(0,1-s.sp.dist/(MAX_DIST*0.75)));
+    if(s.kind==='nb')   drawNotebook(sx,sy,sw,s.sp.h,s.sp.dist);
+    if(s.kind==='item') drawItem(sx,sy,sw,s.sp.h,s.obj.type);
+    if(s.kind==='char') drawChar(sx,sy,sw,s.sp.h,s.obj);
+    ctx.restore();
+  }
+}
+
+/* ============================================================
+   SPRITE DRAW FUNCTIONS
+   TODO: Replace each with ctx.drawImage(yourSprite, x, y, w, h)
+   ============================================================ */
+
+function drawNotebook(x,y,w,h,dist) {
+  // TODO: ctx.drawImage(notebookImg, x, y, w, h);
+  ctx.fillStyle='#ffffaa'; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='#ccaa00'; ctx.fillRect(x,y,w*0.12,h);  // spine
+  ctx.strokeStyle='rgba(0,0,200,0.35)'; ctx.lineWidth=1;
+  var nl=Math.max(3,Math.floor(h/14));
+  for(var i=1;i<nl;i++){
+    ctx.beginPath(); ctx.moveTo(x+w*0.15,y+i*(h/nl)); ctx.lineTo(x+w*0.9,y+i*(h/nl)); ctx.stroke();
+  }
+  ctx.strokeStyle='#000'; ctx.lineWidth=1; ctx.strokeRect(x,y,w,h);
+  if(dist<CELL*2.5){ctx.fillStyle='rgba(255,255,0,'+(0.25*(1-dist/(CELL*2.5)))+')'; ctx.fillRect(x-5,y-5,w+10,h+10);}
+}
+
+function drawItem(x,y,w,h,type) {
+  // TODO: ctx.drawImage(itemImgs[type], x, y, w, h);
+  var def=ITEMS[type];
+  ctx.fillStyle=def.color; ctx.fillRect(x+w*0.15,y+h*0.1,w*0.7,h*0.8);
+  ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.strokeRect(x+w*0.15,y+h*0.1,w*0.7,h*0.8);
+  ctx.fillStyle='#000'; ctx.font=Math.max(9,Math.floor(h*0.14))+'px Schoolbell,cursive';
+  ctx.textAlign='center';
+  var lns=def.label.split('\n');
+  for(var li=0;li<lns.length;li++) ctx.fillText(lns[li],x+w/2,y+h*0.45+li*h*0.18);
+  ctx.textAlign='left';
+}
+
+function drawChar(x,y,w,h,ch) {
+  // TODO: ctx.drawImage(charSheet, frameX, 0, frameW, frameH, x, y, w, h);
+  var def=ch.def;
+  // Head
+  ctx.fillStyle=def.color; ctx.fillRect(x+w*0.1,y,w*0.8,h*0.52);
+  // Eyes
+  ctx.fillStyle='#fff';
+  ctx.fillRect(x+w*0.18,y+h*0.09,w*0.19,h*0.19);
+  ctx.fillRect(x+w*0.63,y+h*0.09,w*0.19,h*0.19);
+  // Pupils — shift toward player when angry
+  ctx.fillStyle='#000';
+  var ps=ch.angry?0.04:0;
+  ctx.fillRect(x+w*(0.24+ps),y+h*0.12,w*0.09,h*0.13);
+  ctx.fillRect(x+w*(0.67+ps),y+h*0.12,w*0.09,h*0.13);
+  // Eyebrows
+  ctx.strokeStyle='#003300'; ctx.lineWidth=Math.max(1.5,h*0.025);
+  ctx.beginPath(); ctx.moveTo(x+w*0.14,y+h*(ch.angry?0.05:0.06)); ctx.lineTo(x+w*0.38,y+h*(ch.angry?0.10:0.06)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x+w*0.62,y+h*(ch.angry?0.10:0.06)); ctx.lineTo(x+w*0.86,y+h*(ch.angry?0.05:0.06)); ctx.stroke();
+  // Mouth
+  ctx.strokeStyle='#003300'; ctx.lineWidth=Math.max(1.5,h*0.022);
+  ctx.beginPath();
+  if(ch.angry){ ctx.moveTo(x+w*0.28,y+h*0.40); ctx.lineTo(x+w*0.72,y+h*0.40); }
+  else { ctx.arc(x+w/2,y+h*0.36,w*0.18,0.15,Math.PI-0.15); }
+  ctx.stroke();
+  // Body + arms
+  ctx.fillStyle='#1a7a1a'; ctx.fillRect(x+w*0.18,y+h*0.52,w*0.64,h*0.48);
+  ctx.fillRect(x,y+h*0.52,w*0.18,h*0.32); ctx.fillRect(x+w*0.82,y+h*0.52,w*0.18,h*0.32);
+  // Ruler when angry (TODO: replace with ruler sprite)
+  if(ch.angry){
+    ctx.fillStyle='#aa8800'; ctx.fillRect(x+w*0.82,y+h*0.52,w*0.07,h*0.6);
+    ctx.strokeStyle='#664400'; ctx.lineWidth=1; ctx.strokeRect(x+w*0.82,y+h*0.52,w*0.07,h*0.6);
+    ctx.fillStyle='rgba(255,0,0,0.1)'; ctx.fillRect(x,y,w,h);
+  }
+  // Outline for hand-drawn look
+  ctx.strokeStyle='#000'; ctx.lineWidth=Math.max(1,h*0.01); ctx.strokeRect(x+w*0.1,y,w*0.8,h*0.52);
+}
+
+/* ============================================================
+   MINIMAP  (press M to toggle)
+   ============================================================ */
+function renderMinimap() {
+  var mc=document.getElementById('minimap');
+  if(!mc) return;
+  var mctx=mc.getContext('2d');
+  var cs=140/MAZE_W;
+  mctx.fillStyle='#000'; mctx.fillRect(0,0,140,140);
+  for(var y=0;y<MAZE_H;y++) for(var x=0;x<MAZE_W;x++){
+    mctx.fillStyle=map[y][x]===1?'#226622':'#111a11';
+    mctx.fillRect(x*cs,y*cs,cs,cs);
+  }
+  for(var i=0;i<G.notebooks.length;i++){
+    var nb=G.notebooks[i]; if(nb.collected) continue;
+    mctx.fillStyle='#ffff00'; mctx.fillRect(nb.x/CELL*cs-2,nb.y/CELL*cs-2,4,4);
+  }
+  for(var i=0;i<G.characters.length;i++){
+    var ch=G.characters[i];
+    if(Math.hypot(ch.x-G.player.x,ch.y-G.player.y)<CELL*9){
+      mctx.fillStyle='#ff4444'; mctx.fillRect(ch.x/CELL*cs-2,ch.y/CELL*cs-2,4,4);
+    }
+  }
+  var px=G.player.x/CELL*cs, py=G.player.y/CELL*cs;
+  mctx.fillStyle='#00ff00'; mctx.fillRect(px-3,py-3,6,6);
+  mctx.strokeStyle='#00ff00'; mctx.lineWidth=1;
+  mctx.beginPath(); mctx.moveTo(px,py); mctx.lineTo(px+Math.cos(G.player.angle)*8,py+Math.sin(G.player.angle)*8); mctx.stroke();
+}
+
+/* ============================================================
+   POST-PROCESSING: vignette + crosshair
+   ============================================================ */
+function renderVignette() {
+  var g=ctx.createRadialGradient(W/2,H/2,H*0.28,W/2,H/2,H*0.75);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.48)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+
+function renderCrosshair() {
+  // TODO: Replace with your crosshair image
+  ctx.strokeStyle='rgba(0,0,0,0.65)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(W/2-10,H/2); ctx.lineTo(W/2+10,H/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W/2,H/2-10); ctx.lineTo(W/2,H/2+10); ctx.stroke();
+}
+
+/* ============================================================
+   MAIN RENDER
+   ============================================================ */
+function renderFrame() {
+  renderWalls();
+  renderSprites();
+  renderVignette();
+  renderCrosshair();
+}
+
+/* ============================================================
+   GAME LOOP
+   ============================================================ */
+var animId=null, lastTime=0;
+
+function gameLoop(ts) {
+  var dt=Math.min((ts-lastTime)/1000,0.05);
+  lastTime=ts;
+  if(G.state==='playing' && !G.greenyShown && G.player){
+    updatePlayer(dt);
+    updateChars(dt);
+    tickDetention(dt);
+    updateHUD();
+    renderFrame();
+    if(G.showMap) renderMinimap();
+  }
+  animId=requestAnimationFrame(gameLoop);
+}
+
+/* ============================================================
+   WIN / LOSE
+   ============================================================ */
+function triggerWin() {
+  G.state='won'; G.endTime=performance.now();
+  saveRun(true,TOTAL_NB,G.endTime-G.startTime,G.wrongCount);
+  document.getElementById('hud').style.display='none';
+  var secs=((G.endTime-G.startTime)/1000).toFixed(1);
+  document.getElementById('win-s1').textContent='Time: '+secs+'s';
+  document.getElementById('win-s2').textContent='Mistakes: '+G.wrongCount;
+  document.getElementById('screen-win').style.display='flex';
+}
+
+function showGameOver() {
+  document.getElementById('hud').style.display='none';
+  var secs=((G.endTime-G.startTime)/1000).toFixed(1);
+  document.getElementById('go-s1').textContent='Notebooks: '+G.nbCollected+' / '+TOTAL_NB;
+  document.getElementById('go-s2').textContent='Survived: '+secs+'s';
+  document.getElementById('screen-gameover').style.display='flex';
+}
+
+/* ============================================================
+   SCREEN NAV
+   ============================================================ */
+function startGame() {
+  // Init canvas here — DOM is guaranteed ready at this point
+  canvas=document.getElementById('gameCanvas');
+  ctx=canvas.getContext('2d');
+  resizeCanvas();
+
+  document.getElementById('screen-title').style.display='none';
+  document.getElementById('screen-gameover').style.display='none';
+  document.getElementById('screen-win').style.display='none';
+  document.getElementById('nb-flash').style.display='none';
+  document.getElementById('jumpscare').style.display='none';
+  document.getElementById('hud').style.display='block';
+
+  initGame();
+  lastTime=performance.now();
+  cancelAnimationFrame(animId);
+  animId=requestAnimationFrame(gameLoop);
+}
+
+function gotoTitle() {
+  cancelAnimationFrame(animId);
+  document.getElementById('screen-gameover').style.display='none';
+  document.getElementById('screen-win').style.display='none';
+  document.getElementById('hud').style.display='none';
+  document.getElementById('nb-flash').style.display='none';
+  document.getElementById('screen-title').style.display='flex';
+  refreshTitleBest();
+}
+
+function refreshTitleBest() {
+  var runs=loadSaves(), wins=runs.filter(function(r){return r.won;}).length;
+  var bt=bestTime(), el=document.getElementById('title-best');
+  if(bt) el.textContent='Best: '+(bt/1000).toFixed(1)+'s  |  Wins: '+wins+'/'+runs.length+' runs';
+  else el.textContent=runs.length?runs.length+' run'+(runs.length>1?'s':'')+' \u2014 no wins yet':'';
+}
+
+function viewScores() {
+  var runs=loadSaves();
+  if(!runs.length){alert('No runs yet!');return;}
+  var sorted=runs.slice().sort(function(a,b){return a.won===b.won?a.timeMs-b.timeMs:(b.won?1:-1);});
+  var msg='=== GREENY SCORES ===\n\n';
+  sorted.slice(0,12).forEach(function(r,i){
+    var d=new Date(r.date).toLocaleDateString();
+    msg+=(i+1)+'. '+(r.won?'WIN ':'LOSS')+' | '+(r.timeMs/1000).toFixed(1)+'s | '+r.notebooks+' notebooks | '+r.wrongAnswers+' mistakes | '+d+'\n';
+  });
+  alert(msg);
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+var keys={};
+
+document.addEventListener('keydown',function(e){
+  keys[e.code]=true;
+  if(e.code==='Enter'&&G.mathOpen&&G.player){e.preventDefault();submitAnswer();}
+  if(e.code==='Escape'&&G.mathOpen&&G.player){document.getElementById('nb-flash').style.display='none';G.mathOpen=false;G.mathNB=null;}
+  if(e.code==='Digit1'&&G.player) useSlot(0);
+  if(e.code==='Digit2'&&G.player) useSlot(1);
+  if(e.code==='Digit3'&&G.player) useSlot(2);
+  if(e.code==='KeyM'&&G.state==='playing'&&G.player){
+    G.showMap=!G.showMap;
+    document.getElementById('minimap').style.display=G.showMap?'block':'none';
+  }
+});
+document.addEventListener('keyup',function(e){keys[e.code]=false;});
+
+/* Mouse look */
+document.addEventListener('click',function(e){
+  if(G.state==='playing'&&canvas&&e.target===canvas) canvas.requestPointerLock();
+});
+document.addEventListener('pointerlockchange',function(){
+  var locked=document.pointerLockElement===canvas;
+  document.getElementById('lock-hint').style.display=(locked||G.state!=='playing')?'none':'block';
+});
+document.addEventListener('mousemove',function(e){
+  if(!canvas||document.pointerLockElement!==canvas) return;
+  if(G.state!=='playing'||G.mathOpen||!G.player) return;
+  G.player.angle+=e.movementX*MOUSE_SENS;
+});
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+refreshTitleBest();
+</script>
 </body>
 </html>
